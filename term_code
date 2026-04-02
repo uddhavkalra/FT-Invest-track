@@ -1,0 +1,3 @@
+conda activate econ
+cd Desktop/FT\ Invest\ track
+streamlit run ft_app.py
