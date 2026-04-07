@@ -7,6 +7,6 @@ Open the terminal set to your python enviornment, set to folder with py scripts 
 ## Notes
 1. Sell return calculated as if indefinite short position held with no margin.
 2. Buy:Sell:Hold weights are 2:2:1
-3. Can only be updated after yfinance updates data for the friday the article releases.
+3. Can only be updated after yfinance updates data after 2 market close prices.
 4. Overall S&P500 returns calculated as if one were dollar cost averaging every week into the index.
-5. Last updated: March 27th 2026.
+5. Last updated: April 4th 2026.

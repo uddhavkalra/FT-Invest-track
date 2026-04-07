@@ -8,33 +8,61 @@ from matplotlib.patches import Patch
 warnings.filterwarnings('ignore')
 
 def data_collector(ticker:dict, start_date:datetime, end_date:datetime):
-    data = yf.download(list(ticker.keys()), start = start_date, end = end_date)
+    data = yf.download(list(ticker.keys()), start = start_date, end = end_date)['Close']
     data = data.stack().reset_index()
-    data.columns = ['Date', 'Ticker', 'Close', 'High', 'Low', 'Open', 'Volume']
+    data.columns = ['Date', 'Ticker', 'Close']
     data['Pick'] = data['Ticker'].map(ticker)
-    sp = yf.download('^GSPC', start=start_date, end=end_date)
+    sp = yf.download('^GSPC', start=start_date, end=end_date)['Close']
     sp = sp.stack().reset_index()
-    sp.columns = ['Date', 'Ticker', 'Close', 'High', 'Low', 'Open', 'Volume']
+    sp.columns = ['Date', 'Ticker', 'Close']
     data2 = pd.merge(data, sp, on='Date', how='left', suffixes=('', '_SP'))
     if data2['Close_SP'].isnull().any():
         data2['Close_SP'] = data2['Close_SP'].fillna(method='ffill')
-    if data2['Open_SP'].isnull().any():
-        data2['Open_SP'] = data2['Open_SP'].fillna(method='ffill')
     return data2
 
 def performance_stock(ticker:str, data:pd.DataFrame):
-    pick = data[data['Ticker'] == ticker]['Pick'].iloc[0]
-    change = data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].max())]['Close'].reset_index(drop = True)[0] - data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].min())]['Open'].reset_index(drop = True)[0]
+    ticker_data = data[data['Ticker'] == ticker]
+    if len(ticker_data) == 0:
+        print(f"❌ PROBLEM: {ticker} - No data found in dataset")
+        return None, None, None
+    
+    try:
+        pick = ticker_data['Pick'].iloc[0]
+    except IndexError:
+        print(f"❌ PROBLEM: {ticker} - Missing 'Pick' value")
+        return None, None, None
+    
+    max_date_data = ticker_data[ticker_data['Date'] == ticker_data['Date'].max()]['Close'].reset_index(drop=True)
+    min_date_data = ticker_data[ticker_data['Date'] == ticker_data['Date'].min()]['Close'].reset_index(drop=True)
+    
+    if len(max_date_data) == 0 or len(min_date_data) == 0:
+        print(f"❌ PROBLEM: {ticker} - Missing Close price data for min/max dates")
+        return None, None, None
+    
+    change = max_date_data[0] - min_date_data[0]
     if pick == 'Sell':
-        ret = -change /data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].min())]['Open'].reset_index(drop = True)[0] * 100
+        ret = -change / min_date_data[0] * 100
     else:
-        ret = change / data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].min())]['Open'].reset_index(drop = True)[0] * 100
-    sp_change = data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].max())]['Close_SP'].reset_index(drop = True)[0] - data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].min())]['Open_SP'].reset_index(drop = True)[0]
-    sp_ret = sp_change / data[(data['Ticker'] == ticker) & (data['Date'] == data['Date'].min())]['Open_SP'].reset_index(drop = True)[0] * 100
+        ret = change / min_date_data[0] * 100
+    
+    max_sp_data = ticker_data[ticker_data['Date'] == ticker_data['Date'].max()]['Close_SP'].reset_index(drop=True)
+    min_sp_data = ticker_data[ticker_data['Date'] == ticker_data['Date'].min()]['Close_SP'].reset_index(drop=True)
+    
+    if len(max_sp_data) == 0 or len(min_sp_data) == 0:
+        print(f"⚠️  WARNING: {ticker} - Missing S&P data for min/max dates")
+        return ret, pick, None
+    
+    sp_change = max_sp_data[0] - min_sp_data[0]
+    sp_ret = sp_change / min_sp_data[0] * 100
     return ret, pick, sp_ret
 
 def results_summary(data:pd.DataFrame, tickers:dict):
+    print("\nProcessing tickers...")
     results = {ticker: performance_stock(ticker, data) for ticker in list(tickers.keys())}
+    results = {k: v for k, v in results.items() if v != (None, None, None)}
+    if len(results) == 0:
+        print("No valid results to display.")
+        return pd.DataFrame()
     return pd.DataFrame(results, index=['Return (%)', 'Pick', 'SP Return (%)']).T
 
 def merge_and_evaluate(results_list:list, key_list:list, tol:float): 
