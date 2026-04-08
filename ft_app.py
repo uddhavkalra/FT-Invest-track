@@ -80,7 +80,7 @@ if picks:
         results_list = []
 
         for date_str, tickers in picks.items():
-            data = data_collector(tickers, date_str, datetime.date.today())
+            data = data_collector(tickers, date_str, (datetime.date.today() + datetime.timedelta(days=1)).isoformat())
             results = results_summary(data, tickers)
             results_list.append(results)
 
@@ -133,7 +133,7 @@ if picks:
                 steps = 30
 
             tickers_for_date = picks[selected_date]
-            data_for_date = data_collector(tickers_for_date, selected_date, datetime.date.today())
+            data_for_date = data_collector(tickers_for_date, selected_date, (datetime.date.today() + datetime.timedelta(days=1)).isoformat())
 
             fig2 = plot_results(data_for_date, tickers_for_date, steps)
             st.pyplot(fig2)
